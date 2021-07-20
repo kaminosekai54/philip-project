@@ -11,8 +11,6 @@ def main():
         os.makedirs("./SequencingData")
 
     path_to_file = "./SequencingData"
-            
-
 
     if not os.path.isdir("./Figures"):
         os.makedirs("./Figures")
@@ -26,6 +24,7 @@ def main():
     substratList = pd.read_csv("./SequencingData/substrates_list.csv", sep= ",")
     print("List of registered substrat : ")
     print("Substrat | Stem")
+    print(substratList)
     for index, row in substratList.iterrows():
         print(row["Substrat"] + " | " + row["Stem"])
 
@@ -35,6 +34,8 @@ def main():
 
     else:
         stem = input("Please enter the stem you want to alocate to the new substrat : \n For exemple CGCGAATTAACGCGACAACAT \n and type 'Enter to continue \n Stem :")
+        substratList.append({substrate_name : stem})
+        substratList.to_csv("./SequencingData/substrates_list.csv", sep= ",", index= False)
 
     print(substrate_name)
     print(stem)
