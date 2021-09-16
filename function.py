@@ -13,10 +13,27 @@ import os
 import shutil
 import re
 import math 
-
 from difflib import SequenceMatcher
-import mappy as mp
+# import mappy as mp
+import json
 
+# function to load and save the settings
+# settings are mostely usefull to set up the working directory
+def saveSettings(dict, file):
+    setting_file = open("Settings/" + file, "w")
+    json.dump(dict, setting_file)
+    setting_file.close()
+
+def loadSettings(file):
+    if not os.path.isdir("./Settings"):
+        os.makedirs("./Settings")
+    if not os.path.isfile("./Settings/settings.json"):
+        saveSettings({"workingDirectory" : ""}, "settings.json")
+
+    with open("Settings/" + file) as json_file:
+        settings = json.load(json_file)
+        print(settings)
+        return settings
 
 
 # Classic functions 
@@ -27,6 +44,7 @@ import mappy as mp
 def complement(s): 
     basecomplement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'} 
     letters = list(s) 
+
     letters = [basecomplement[base] for base in letters] 
     return ''.join(letters)
 
@@ -34,68 +52,13 @@ def complement(s):
 def revcom(s):
     return complement(s[::-1]) # s[::-1] means that the elements of s are sorted in  reverse order
 
-# # Definition of variables
-
-# Definition of the different treatments
-concat = 0 # 0 is no concat or 1 if concatenation
-raw = -1 # 1 : raw file (fastQ without cleaning); -1 : file after treatment (cleaning, concatenation, etc..)
-treatment_type = 2 # 1 : removal of sequences that don't have GGG; 2 : removal of sequences that don't have [CG]{3}; -1 if any
-
-if_controle = 0 # decide if we take into account a control batch 1 if yes o otherwise
+# if_controle = 0 # decide if we take into account a control batch 1 if yes o otherwise
 #controle = C2 # controle proportions of nucléotides
-
-UMI_pos = [0] # Position and size of the UMI:  UMI_pos=[x] if the UMI is the x first nucleotides 
-# and UMI_pos=[x,y] if the UMI is the x first nucleotides and the y last
-Nb_MU = 6 #number of MU plotted
-MU_thresh = 26 # number of MU for stems only processed by the SequenceDiversity fonction
-H_thresh = 16 # H_thresh : H_thresh is the number of combination allowed by the SequenceDiversity fonction
-# ex : for Hx,y with x<=3 and y<=3, there are 4*4 combinations == 16 
-MU_in_H_thresh = 6 # number of MU within hairpins between the two stems processed by the SequenceDiversity fonction
-
-# definition of the sequences of interest
-#substrate_name = 'A1' # file name, there has to be a folder named 'figures' and another named 'file' in 'figures' in the directory
-#stem = "CGCGAATTAACGCGTTAACAT"
-substrate_name = 'X4' 
-stem = "CGCGAATTAACGCGACAACAT"
-compl_stem = revcom(stem)
-stem_RC = r"ATG%s" % (revcom(stem))
-hairpin_stem1 = stem[-(len(stem)-2):]
-hairpin_stem2 = stem[-(len(stem)-4):]
-tag = "CAT"
-MU = 2 # size of the standard mobile unit in this batch, tag excluded
-compl_tag = revcom(tag)
-
-# Other variables
-polyA = (r"A{6,18}")
-T_patch = (r"T{6,18}")
-
-regex_NN = '[ATGC]*?CAT' # regex used to find all the mobile units
-regex_NNCA = '[ATGC]*?CA' # regex used to find if there is a last mobile unit which tag has been cut 
-
-regex_MU_cuted = 'AACA'
-regex_MU = 'AACAT'
-regex_repet_stem = r'^( + regex_MU + )*( + regex_MU_cuted + )?%s'%polyA
-print(regex_repet_stem )
-
-
-
 # position of the diverse files
-path_to_file = r"C:\Users\Camille\Documents\GitHub\RNASeq_analysis\SequencingData\RNASeq_1/"
-position_mothur = r"C:\Users\Camille\Documents\GitHub\RNASeq_analysis\Mothur\fastqtest" # position of the directory inside which mothur process the files (see the .batch file)
-excel_pos = path_to_file + "%s.xlsx"%(substrate_name) # the name of the Excel file in which the datas are stored
-path_to_figure = r"C:\Users\Camille\Documents\GitHub\RNASeq_analysis\Figures"
-
-
-# # Processing Cell
-# file_to_process = Preprocessing(path_to_file, substrate_name, concat, raw)
-# print(file_to_process)
-
-# seq, final_file_to_process = UnexpectedSeqRemover(path_to_file, file_to_process, treatment_type)
-# S, NUS_Stem = SFishing(regex_repet_stem, seq, regex_AA, regex_AACA)
-# H = HpFishing(seq, regex_AA, regex_AACA)
-# X_S, Prop_S, X_Hxx, Prop_Hxx, X_H, Prop_H1, Prop_H2, X, Prop = Sequence_diversity(S, H, MU_thresh, H_thresh, MU_in_H_thresh)
-
-
+# path_to_file = r"C:\Users\Camille\Documents\GitHub\RNASeq_analysis\SequencingData\RNASeq_1/"
+# position_mothur = r"C:\Users\Camille\Documents\GitHub\RNASeq_analysis\Mothur\fastqtest" # position of the directory inside which mothur process the files (see the .batch file)
+# excel_pos = path_to_file + "%s.xlsx"%(substrate_name) # the name of the Excel file in which the datas are stored
+# path_to_figure = r"C:\Users\Camille\Documents\GitHub\RNASeq_analysis\Figures"
 
 
 # # FastQToFasta
@@ -103,18 +66,32 @@ path_to_figure = r"C:\Users\Camille\Documents\GitHub\RNASeq_analysis\Figures"
     # @param
     # @path_to_fastq, path to the file to process, should finish by the .fastq extention
     # @read_identifier, first three letters of the read identifier from the raw fastq file.
-def FastQToFasta(path_to_fastq, read_identifier = '@M0'):
+def FastQToFasta(path_to_file, substrate_name, output_path, file_sufix, read_identifier = '@M0', use_mappy= False):
      
-    output_fasta = open("%s.fasta"%path_to_fastq.replace(".fastq",""), "w")
-    output_qual = open("%s.qual"%path_to_fastq.replace(".fastq",""), "w")
+    output_fasta = open(output_path + substrate_name + file_sufix.replace(".fastq", ".fasta"), "w")
+    output_qual = open(output_path + substrate_name + file_sufix.replace(".fastq", ".qual"), "w")
     i = 0 
-    for name, seq, qual in mp.fastx_read(path_to_fastq):
+    if use_mappy:
+        for name, seq, qual in mp.fastx_read(output_path + substrate_name + file_sufix):
 
-        i += 1 #count the number of read in the file
-        newFastQID = name.replace(":","_").replace("@",">") 
-        output_fasta.write(newFastQID + '\n' + seq + '\n')
-        output_qual.write(newFastQID+ '\n' + qual + '\n')
+            i += 1 #count the number of read in the file
+            newFastQID = name.replace(":","_").replace("@",">") 
+            output_fasta.write(newFastQID + '\n' + seq + '\n')
+            output_qual.write(newFastQID+ '\n' + qual + '\n')
     
+    else:
+        f = open(output_path + substrate_name + file_sufix, "r")
+        for line in f:
+            i += 1 #count the number of read in the file
+            if line.startswith(read_identifier):
+                FastQID = line.strip()
+                seq = next(f).strip()
+                plus = next(f).strip()
+                quality = next(f).strip()
+                newFastQID = FastQID.replace(":","_").replace("@",">") 
+   
+            output_fasta.write(newFastQID + '\n' + seq + '\n')
+            output_qual.write(newFastQID+ '\n' + quality + '\n')
 
     output_fasta.close()
     output_qual.close()
@@ -127,9 +104,10 @@ def FastQToFasta(path_to_fastq, read_identifier = '@M0'):
     # @path_to_fastq, path to the file to process, should finish by the .fastq extention
     # @read, indicate if the file is a Read1 or Read2 file, can take 1 or 2 value
     # @read_identifier, first three letters of the read identifier from the raw fastq file.
-def ReadCleaner(path_to_fastq, read_identifier, read):
-    output = open(r"%s_cleaned.fastq" %(path_to_fastq.replace('.fastq',"")), "w")
-    f = open(path_to_fastq, "r")
+def ReadCleaner(path_to_file, substrate_name, output_path, read_identifier, read, stem, polyA, stem_RC, T_patch):
+    # print(path_to_fastq)
+    output = open(output_path + substrate_name + "_R" + str(read) +"_cleaned.fastq", "w")
+    f = open(path_to_file + substrate_name + "_R" + str(read) + ".fastq", "r")
 
     i = 0 #count the number of read in the file
     PhiX = 0 #count the number of PhiX
@@ -170,23 +148,23 @@ def ReadCleaner(path_to_fastq, read_identifier, read):
 
 
 # # Preprocessing
-def Preprocessing(path_to_file, substrate_name, concat, raw):
-
-    get_ipython().run_line_magic('cd', '"C:\\Users\\Camille\\Documents\\GitHub\\RNASeq_analysis\\SequencingData\\RNASeq_1"')
-
+def Preprocessing(args):
+    path_to_file, excel_pos, substrate_name, stem, stem_RC, MU, UMI_pos, Nb_MU, polyA, T_patch, concat, raw = args
     #create the excel file which will compile the different treatments, with the first sheet regrouping general info
     df = pd.DataFrame([substrate_name, stem, MU, UMI_pos, Nb_MU, path_to_file],
                 index=['fichier', 'stem', 'longueur_unite_mobile', 'position_UMI', 'Nb_Mu_plot', 'repertoire']) 
-
-
-    if not os.path.isfile(excel_pos):
-        with pd.ExcelWriter(excel_pos, engine = "openpyxl") as writer :  
+    if not os.path.isdir(excel_pos + substrate_name):
+        os.makedirs(excel_pos + substrate_name)
+    output_path = excel_pos + substrate_name + "/"
+    if not os.path.isfile(output_path + substrate_name + ".xlsx"):
+        with pd.ExcelWriter(output_path + substrate_name+".xlsx", engine = "openpyxl") as writer :  
             df.to_excel(writer, sheet_name = 'sequence_info')
+            
 
 
     # Cleaning of the R1 and R2 files
-    ReadCleaner(path_to_file + substrate_name + "_R1.fastq", '@M0', 1) # ouvre le fichier read1 et coupe après la queue polya
-    ReadCleaner(path_to_file + substrate_name + "_R2.fastq", '@M0', 2) # idem pour le read2
+    ReadCleaner(path_to_file, substrate_name, output_path, '@M0', 1, stem, polyA, stem_RC, T_patch) # ouvre le fichier read1 et coupe après la queue polya
+    ReadCleaner(path_to_file, substrate_name, output_path, '@M0', 2, stem, polyA, stem_RC, T_patch) # idem pour le read2
 
     # In case of no concatenation, we don't need to use Mothur
     # We just need to convert the R1 FastQ file in Fasta file
@@ -194,21 +172,23 @@ def Preprocessing(path_to_file, substrate_name, concat, raw):
 
 
     if concat == 0 and raw == 1:
-        FastQToFasta(path_to_file + substrate_name + '_R1.fastq', '@M0')
-        if not os.path.isfile(r"%s\%s_R1_raw.fasta" % (path_to_file, substrate_name)):
-            os.rename(r"%s\%s_R1.fasta" % (path_to_file, substrate_name) , r"%s\%s_R1_raw.fasta" % (path_to_file, substrate_name))
+        file_sufix = "_R1.fastq"
+        FastQToFasta(path_to_file, substrate_name, output_path, file_sufix , '@M0')
+        if not os.path.isfile(output_path + substrate_name + "_R1_raw.fasta"):
+            os.rename(output_path + substrate_name + "_R1.fasta", output_path  + substrate_name + "_R1_raw.fasta")
         else :
-            os.remove(r"%s\%s_R1_raw.fasta" % (path_to_file, substrate_name))
-            os.rename(r"%s\%s_R1.fasta" % (path_to_file, substrate_name) , r"%s\%s_R1_raw.fasta" % (path_to_file, substrate_name))
+            os.remove(output_path + substrate_name + "_R1_raw.fasta")
+            os.rename(output_path  + substrate_name + "_R1.fasta", path_to_file + substrate_name + "_R1_raw.fasta")
         file_to_process = substrate_name + '_R1_raw'
     
     elif concat == 0 and raw == -1:
-        FastQToFasta(path_to_file + substrate_name + '_R1_cleaned.fastq', '@M0')
-        if not os.path.isfile(r"%s\%s_without_concat.fasta" % (path_to_file, substrate_name)):
-            os.rename(r"%s\%s_R1_cleaned.fasta" % (path_to_file, substrate_name) , r"%s\%s_without_concat.fasta" % (path_to_file, substrate_name))
+        file_sufix = '_R1_cleaned.fastq' 
+        FastQToFasta(path_to_file, substrate_name, output_path, file_sufix , '@M0')
+        if not os.path.isfile(output_path + substrate_name + "_without_concat.fasta"):
+            os.rename(output_path + substrate_name + "_R1_cleaned.fasta", output_path + substrate_name + "_without_concat.fasta")
         else :
-            os.remove(r"%s\%s_without_concat.fasta" % (path_to_file, substrate_name))
-            os.rename(r"%s\%s_R1_cleaned.fasta" % (path_to_file, substrate_name) , r"%s\%s_without_concat.fasta" % (path_to_file, substrate_name))   
+            os.remove(output_path + substrate_name + "_without_concat.fasta")
+            os.rename(output_path + substrate_name + "_R1_cleaned.fasta", output_path + substrate_name + "_without_concat.fasta")   
         file_to_process = substrate_name + '_without_concat'
     
     # In case of concatenation, we need to move the cleaned R1 and R2 fastq file in the Mothur folder
@@ -269,18 +249,18 @@ def Preprocessing(path_to_file, substrate_name, concat, raw):
         shutil.move(r"%s\%s.fastq" % (position_mothur, file_to_remove1), r"%s\%s.fastq" % (path_to_file, file_to_remove1))
         shutil.move(r"%s\%s.fastq" % (position_mothur, file_to_remove2), r"%s\%s.fastq" % (path_to_file, file_to_remove2))
     
-    return file_to_process
+    return output_path, file_to_process
 
 
 # # UnexpectedSeqRemover
-def UnexpectedSeqRemover(path_to_file, file_to_process, treatment_type):
+def UnexpectedSeqRemover(path_to_file, file_to_process, treatment_type, stem, tag):
     # open the final_file_to_process
-    f = open(r"%s\%s.fasta" % (path_to_file, file_to_process),"r")
+    f = open(path_to_file + file_to_process + ".fasta",'r')
 
     # create a file to store the sequences without stem
     # WARNING : if you run this program more than once, you will store the sequences twice
-    sequence_removed_file = open('unexpected_no_stem_' + 'type_%s_' %(treatment_type) + file_to_process + '.fasta', "a")
-    sequence_passing_test_file = open('sequence_with_stem_' + 'type_%s_' %(treatment_type) + file_to_process + '.fasta', "a")
+    sequence_removed_file = open(path_to_file + "unexpected_no_stem_type_" + str(treatment_type) + "_" + file_to_process + '.fasta', "a")
+    sequence_passing_test_file = open(path_to_file + "sequence_with_stem__type_" + str(treatment_type) + "_" + file_to_process + '.fasta', "w")
 
 
     all_seq_list = [] # list of the odd line of f, which are the sequences (the even lines are the fasta identifier)
@@ -295,16 +275,15 @@ def UnexpectedSeqRemover(path_to_file, file_to_process, treatment_type):
         i += 1
 
     # For every element of all_seq_list, check if the element has the stem
-    # If the element has the stem, it is added the the list seq
+    # If the element has the stem, it is added to the the list seq
     # If not, the element is directly written in the sequence_removed_file
 
     unpass = 0
     pas = 0
     i = 0
-    
     for x in all_seq_list :
         i += 1
-        if treatment_type == 1:
+        if int(treatment_type) == 1:
             if x.find(stem) != -1 and x.find(tag) != -1 and x.find('GGG') != -1 :
                 pas += 1
                 sequence_passing_test_file.write(x + '\n')
@@ -313,7 +292,7 @@ def UnexpectedSeqRemover(path_to_file, file_to_process, treatment_type):
                 unpass += 1
                 sequence_removed_file.write(x + '\n')
 
-        elif treatment_type == 2:
+        elif int(treatment_type) == 2:
             if re.search('[GC]{1,3}%s' %stem, x) or re.search('^%s' %stem, x) :
                 pas += 1
                 sequence_passing_test_file.write(x + '\n')
@@ -322,18 +301,22 @@ def UnexpectedSeqRemover(path_to_file, file_to_process, treatment_type):
                 unpass += 1
                 sequence_removed_file.write(x + '\n')
 
-        elif treatment_type == 3:  
+        elif int(treatment_type) == 3:
             if x.find(stem) != -1 and x.find(tag) != -1 :
+                # print("ça passe le test")
                 pas += 1
                 sequence_passing_test_file.write(x + '\n')
                 seq.append(x.rstrip()) 
             else:
+                # print(x)
+                # print(x.find(stem))
+                # print(x.find(tag))
                 unpass += 1
                 sequence_removed_file.write(x + '\n')
             
     
 
-    final_file_to_process = file_to_process + '_type_%s_' %(treatment_type)    
+    final_file_to_process = file_to_process + "_type_" + str(treatment_type)
     print("The number of sequences passing the test %s is : %s : %s o/o in %s"%(treatment_type, str(pas/i*100), len(seq), file_to_process))
     print("There are %s seq : %s o/o not passing the test" %(unpass, str(unpass/i*100)))
 
@@ -357,15 +340,15 @@ def UnexpectedSeqRemover(path_to_file, file_to_process, treatment_type):
     
     # NUS_Stem : list of mobile unit with different length
 
-def SFishing(select_seq, seq, regex, regexca):
+def SFishing(output_path, file_to_process, select_seq, seq, regex, regexca, treatment_type, stem, UMI_pos, MU, hairpin_stem1, hairpin_stem2):
     S = []
     NUS_Stem = []
     
     idx = 0
     nb_NNCA_MU = 0
     
-    S_file = open('S_sequence_' + file_to_process + '_type_%s_' %(treatment_type) + '.fasta', "w")
-    S_insert_file = open('S_sequence_with_insert_' + file_to_process + '_type_%s_' %(treatment_type) + '.fasta', "w")
+    S_file = open(output_path + 'S_sequence_' + file_to_process + '_type_' + str(treatment_type) + '.fasta', "w")
+    S_insert_file = open(output_path +'S_sequence_with_insert_' + file_to_process + '_type_' + str(treatment_type) + '.fasta', "w")
     
     strict_cond = 0
     loose_cond = 0
@@ -428,7 +411,6 @@ def SFishing(select_seq, seq, regex, regexca):
         
     S_file.close()
     S_insert_file.close()
-    
     print('The % of sequences finishing by AACAX for S is :' + str(nb_NNCA_MU/len(seq)))
     print('Among the %s sequences, \n %s : %s o/o of them have a strict stem composition and \n %s : %s o/o of them have a stem, MUs and insertions'%(idx, strict_cond, str(strict_cond/idx*100), (loose_cond), str((loose_cond)/idx*100)))
     print('GAACAT : %s and broken hp : %s'%(GAA_MU, broken_hp))
@@ -447,16 +429,16 @@ def SFishing(select_seq, seq, regex, regexca):
     # list of all mobile units located after the second stem, number of mobile unit after the second stem,
     # position of the sequence among all sequences substracted by the sequences without stem or without MU]
 
-def HpFishing(seq, regex, regexca, treatment_type):
+def HpFishing(output_path, file_to_process, select_seq, seq, regex, regexca, treatment_type, stem, UMI_pos, MU, hairpin_stem1, hairpin_stem2, polyA):
     
     H = []
     idx = 0
     nb_NNCA_MU = 0
     
-    H_file = open('H_sequence_' + file_to_process + '_type_%s_' %(treatment_type) + '.fasta', "w")
-    H_insert_file = open('H_sequence_insert_' + file_to_process + '_type_%s_' %(treatment_type) + '.fasta', "w")
-    no_H_file = open('no_H_sequence_' + file_to_process + '_type_%s_' %(treatment_type) + '.fasta', "w")
-    multiple_H_file =open('multiple_H_sequence_' + file_to_process + '_type_%s_' %(treatment_type) + '.fasta', "w")
+    H_file = open(output_path + 'H_sequence_' + file_to_process + '_type_' + str(treatment_type) + '.fasta', "w")
+    H_insert_file = open(output_path + 'H_sequence_insert_' + file_to_process + '_type_' + str(treatment_type) + '.fasta', "w")
+    no_H_file = open(output_path + 'no_H_sequence_' + file_to_process + '_type_' + str(treatment_type) + '.fasta', "w")
+    multiple_H_file =open(output_path + 'multiple_H_sequence_' + file_to_process + '_type_' + str(treatment_type) + '.fasta', "w")
     strict_cond = 0
     loose_cond = 0
     Hp = 0
@@ -538,7 +520,7 @@ def HpFishing(seq, regex, regexca, treatment_type):
 
 
 # # Sequence_diversity 
-def Sequence_diversity(S, H, MU_thresh, H_thresh, MU_in_H_thresh): 
+def Sequence_diversity(output_path, substrate_name, final_file_to_process, S, H, MU_thresh, H_thresh, MU_in_H_thresh): 
     """"
     Function which count the number of sequences of each type (hairpin, stem with mobile unit, etc...)
     and store the results into an excel file.
@@ -656,18 +638,14 @@ def Sequence_diversity(S, H, MU_thresh, H_thresh, MU_in_H_thresh):
     # store the results in a panda dataframe to save it in an excel file
     df = pd.DataFrame(Prop, index = X, columns = ['Number of sequences'])
     
-    with pd.ExcelWriter(excel_pos, engine = "openpyxl", mode ='a') as writer:  
+    with pd.ExcelWriter(output_path +substrate_name +".xlsx", engine = "openpyxl", mode ='a') as writer:  
         df.to_excel(writer, sheet_name = final_file_to_process)
 
     return X_S, Prop_S, X_Hxx, Prop_Hxx, X_H, Prop_H1, Prop_H2, X, Prop
 
 
 # # PlotDiversity
-
-# In[16]:
-
-
-def PlotDiversity(x, y, title, xlabel, ylabel, yscale, file_format, path_to_figure):
+def PlotDiversity(x, y, title, xlabel, ylabel, yscale, file_format, path_to_figure, substrate_name):
     plt.bar(x,y) 
     plt.title(title)
     plt.xlabel(xlabel)
@@ -681,7 +659,3 @@ def PlotDiversity(x, y, title, xlabel, ylabel, yscale, file_format, path_to_figu
         save = path_to_figure + substrate_name + title + '.svg'
         plt.savefig(save)
     plt.close()
-    
-
-
-
