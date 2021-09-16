@@ -1,5 +1,4 @@
 # Imports
-from re import sub
 from function import *
 import os  
 import pandas as pd
@@ -8,23 +7,33 @@ import pandas as pd
 def main():
     print("hello and welcome")
     print("This program will guide you throw its execution")
-    # get the folder where the sequence are stored, if not, creat it
-    if not os.path.isdir("./SequencingData"):
-        os.makedirs("./SequencingData")
-    path_to_file = "./SequencingData/"
+    settings = loadSettings("./settings.json")
+    if settings["workingDirectory"]:
+        changeDir = str.upper(input("Your working directory is set as : " + settings["workingDirectory"] + "\n Do you want to change it ? \n Type Y / N"))
+        while not re.match("^[YN]*$", changeDir) or not changeDir:
+            print("Please enter Y to change your current working directory and N to keep it")
+            changeDir = str.upper(input("Your working directory is set as : " + settings["workingDirectory"] + "\n Do you want to change it ? \n Type Y / N"))
+        if changeDir == "Y":
+            settings["workingDirectory"]= input("Please enter your working directory (path to the directory where your sequence file are stored) ")
+            saveSettings(settings, "./settings.json")
+    else:
+        settings["workingDirectory"] = input("Please enter your working directory (path to the directory where your sequence file are stored) ")
+        saveSettings(settings, "./settings.json")
+
+    path_to_file = settings["workingDirectory"]
+    # get the folder where to store the results , if not, creat it
+    if not os.path.isdir(settings["workingDirectory"] + "Results"):
+        os.makedirs(settings["workingDirectory"] + "Results")
+    excel_pos = settings["workingDirectory"] + "Results/"
 # get the folder where the figures are stored, if not, creat it
-    if not os.path.isdir("./Figures"):
-        os.makedirs("./Figures")
-    path_to_figure = "./Figures/"
+    if not os.path.isdir(settings["workingDirectory"] + "Figures"):
+        os.makedirs(settings["workingDirectory"] + "Figures")
+    path_to_figure = settings["workingDirectory"] + "Figures/"
 # get the file where the stem/substrat info are stored, if not, creat it
-    if not os.path.isfile("./SequencingData/substrates_list.csv"):
+    if not os.path.isfile("./Settings/substrates_list.csv"):
         tmp = pd.DataFrame(columns=["Substrat_name", "Substrat", "Stem"])
-        tmp.to_csv("./SequencingData/substrates_list.csv", sep= ",", index= False)
-    substratList = pd.read_csv("./SequencingData/substrates_list.csv", sep= ",")
-    #  Get the position of the result folder where the excell file will be stored
-    if not os.path.isdir("./Results"):
-        os.makedirs("./Results")
-    excel_pos = "./Results/"
+        tmp.to_csv("./Settings/substrates_list.csv", sep= ",", index= False)
+    substratList = pd.read_csv("./Settings/substrates_list.csv", sep= ",")
 
     # get the position of mothur 
     # position_mothur 
@@ -53,7 +62,7 @@ def main():
 
         stem = new_substrat.split("CAT")[0] + "CAT"
         substratList = substratList.append(pd.DataFrame([(substrate_name, new_substrat, stem)], columns=["Substrat_name", "Substrat", "Stem"]), ignore_index= True)
-        substratList.to_csv("./SequencingData/substrates_list.csv", sep= ",", index= False)
+        substratList.to_csv("./Settings/substrates_list.csv", sep= ",", index= False)
 
     compl_stem = revcom(stem)
     stem_RC = r"ATG%s" % (revcom(stem))

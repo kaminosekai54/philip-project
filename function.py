@@ -13,10 +13,28 @@ import os
 import shutil
 import re
 import math 
-
 from difflib import SequenceMatcher
-import mappy as mp
-from pandas.io import excel
+# import mappy as mp
+import json
+
+# function to load and save the settings
+# settings are mostely usefull to set up the working directory
+def saveSettings(dict, file):
+    setting_file = open("Settings/" + file, "w")
+    json.dump(dict, setting_file)
+    setting_file.close()
+
+def loadSettings(file):
+    if not os.path.isdir("./Settings"):
+        os.makedirs("./Settings")
+    if not os.path.isfile("./Settings/settings.json"):
+        saveSettings({"workingDirectory" : ""}, "settings.json")
+
+    with open("Settings/" + file) as json_file:
+        settings = json.load(json_file)
+        print(settings)
+        return settings
+
 
 # Classic functions 
 #complement
@@ -641,7 +659,3 @@ def PlotDiversity(x, y, title, xlabel, ylabel, yscale, file_format, path_to_figu
         save = path_to_figure + substrate_name + title + '.svg'
         plt.savefig(save)
     plt.close()
-    
-
-
-
