@@ -108,17 +108,23 @@ def main():
 
     UMI_pos = [] # Position and size of the UMI:  UMI_pos=[x] if the UMI is the x first nucleotides 
     # and UMI_pos=[x,y] if the UMI is the x first nucleotides and the y last
-    umi_start = input("Please enter the start position of the UMI, type 0 if the umi is the X first nucleotyde in your sequences")
+    umi_start = input("Please enter the last position of the first UMI")
     while not re.match("^[0-9]*$", umi_start) or not umi_start:
         print("Error : Only number are allowed. \n Please try again")
-        umi_start = input("Please enter the start position of the UMI, type 0 if the umi is the X first nucleotyde in your sequences")
+        umi_start = input("Please enter the last position of the first UMI")
 
     UMI_pos.append(int(umi_start))
-    if int(umi_start) > 0:
-        umi_end= input("Please enter the end position of the UMI (must be > than the start and can not be equal")
-        while not re.match("^[0-9]*$", umi_end) or not umi_end or int(umi_end) <= int(umi_start):
-            print("Error : Only number are allowed or the value you entered don't respect the above constrinct. \n Please try again")
-            umi_end= input("Please enter the end position of the UMI (must be > than the start and can not be equal")
+    umi_end= input("Please enter the first position of the second part of the UMI, type 0 if your UMI is in one part only (must be > than the start and can not be equal")
+    while not re.match("^[0-9]*$", umi_end) or not umi_end :
+        print("Error : Only number are allowed or the value you entered don't respect the above constrinct. \n Please try again")
+        umi_end= input("Please enter the first position of the second part of the UMI, type 0 if your UMI is in one part only (must be > than the start and can not be equal")
+
+    if int(umi_end) > 0:
+        if int(umi_end) <= int(umi_start):
+            print("Error : the first position of the second UMI must be > than the last position of the first UMI |n Must be > than : " + umi_start )
+            while not re.match("^[0-9]*$", umi_end) or not umi_end or int(umi_end) <= int(umi_start):
+                print("Error : the first position of the second UMI must be > than the last position of the first UMI |n Must be > than : " + umi_start )
+                umi_end = input("Please enter the first position of the second UMI ( Must be > than the last position of the first UMI")
 
         UMI_pos.append(int(umi_end))
 
